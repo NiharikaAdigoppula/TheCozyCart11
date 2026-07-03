@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": " Curated shopping category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "icon": { "type": "string" },
+        "banner": { "type": "string" },
+        "displayOrder": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "slug", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Curated affiliate product details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "shortDescription": { "type": "string" },
+        "detailedDescription": { "type": "string" },
+        "images": { "type": "array" },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "discount": { "type": "number" },
+        "storeName": { "type": "string" },
+        "affiliateLink": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array" },
+        "badge": { "type": "string" },
+        "color": { "type": "string" },
+        "availableSizes": { "type": "array" },
+        "material": { "type": "string" },
+        "brand": { "type": "string" },
+        "displayOrder": { "type": "number" },
+        "status": { "type": "string" },
+        "clickCount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "price", "affiliateLink", "category", "status"]
+    },
+    "OutfitCollection": {
+      "title": "OutfitCollection",
+      "description": "Curated Pinterest-style outfit collection",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "productIds": { "type": "array" },
+        "displayOrder": { "type": "number" },
+        "status": { "type": "string" },
+        "clickCount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "slug", "status"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": " Curated categories"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": " Curated affiliate products"
+    },
+    "/collections/{collectionId}": {
+      "schema": "OutfitCollection",
+      "description": " Curated collections of items"
+    }
+  }
+}

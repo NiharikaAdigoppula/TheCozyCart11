@@ -1,0 +1,6 @@
+{
+  "name": "The Cozy Cart",
+  "description": "A premium, aesthetic, Pinterest-inspired curated affiliate shopping platform for modern fashion and lifestyle finds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
