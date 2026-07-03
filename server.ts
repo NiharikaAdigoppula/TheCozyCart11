@@ -9,11 +9,11 @@ import { createServer as createViteServer } from 'vite';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
-import { initializeApp as initAdminApp, getApps as getAdminApps, applicationDefault } from 'firebase-admin/app';
+import { initializeApp as initAdminApp, getApps as getAdminApps, applicationDefault, cert } from 'firebase-admin/app';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { db } from './src/db/mongodb_store';
 
-const PORT = 3000; // Hardcoded by infrastructure
+const PORT = Number(process.env.PORT || 3000);
 
 async function startServer() {
   const app = express();
@@ -48,6 +48,8 @@ async function startServer() {
     return res.status(404).json({ error: 'Firebase config not found' });
   });
 
+  let isFirebaseAuthAvailable = true;
+
   async function ensureAdminUserInFirebase() {
     try {
       const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -55,8 +57,20 @@ async function startServer() {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         if (config && config.projectId) {
           if (getAdminApps().length === 0) {
+            let credential;
+            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+              try {
+                credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT));
+                console.log('Firebase Admin initialized with service account from env.');
+              } catch (e) {
+                console.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT in server.ts:', e);
+                credential = applicationDefault();
+              }
+            } else {
+              credential = applicationDefault();
+            }
             initAdminApp({
-              credential: applicationDefault(),
+              credential,
               projectId: config.projectId,
             });
           }
@@ -69,12 +83,24 @@ async function startServer() {
             console.log(`Firebase Auth Admin User already exists: ${email}`);
           } catch (err: any) {
             if (err.code === 'auth/user-not-found') {
-              await auth.createUser({
-                email,
-                password: defaultPassword,
-                displayName: 'Cozy Admin'
-              });
-              console.log(`Successfully created default Admin User in Firebase Auth: ${email}`);
+              try {
+                await auth.createUser({
+                  email,
+                  password: defaultPassword,
+                  displayName: 'Cozy Admin'
+                });
+                console.log(`Successfully created default Admin User in Firebase Auth: ${email}`);
+              } catch (createErr: any) {
+                if (createErr.message?.includes('identitytoolkit') || createErr.code === 'auth/internal-error') {
+                  console.warn('Firebase Auth Identity Toolkit API is not fully enabled or configured. Disabling secondary Firebase Auth integration.');
+                  isFirebaseAuthAvailable = false;
+                } else {
+                  console.error('Failed to create default Admin User in Firebase Auth:', createErr);
+                }
+              }
+            } else if (err.message?.includes('identitytoolkit') || err.code === 'auth/internal-error') {
+              console.warn('Firebase Auth Identity Toolkit API is not fully enabled or configured. Disabling secondary Firebase Auth integration.');
+              isFirebaseAuthAvailable = false;
             } else {
               console.error('Error checking admin user in Firebase Auth:', err);
             }
@@ -140,13 +166,15 @@ async function startServer() {
     await db.updateAdminPassword(defaultHash);
 
     // Reset in Firebase Auth as well
-    try {
-      const auth = getAdminAuth();
-      const user = await auth.getUserByEmail('thecozycart11@thecozycart.com');
-      await auth.updateUser(user.uid, { password: '12345678' });
-      console.log('Successfully reset Admin password in Firebase Authentication');
-    } catch (e) {
-      console.warn('Could not reset Admin password in Firebase Authentication:', e);
+    if (isFirebaseAuthAvailable) {
+      try {
+        const auth = getAdminAuth();
+        const user = await auth.getUserByEmail('thecozycart11@thecozycart.com');
+        await auth.updateUser(user.uid, { password: '12345678' });
+        console.log('Successfully reset Admin password in Firebase Authentication');
+      } catch (e) {
+        console.warn('Could not reset Admin password in Firebase Authentication:', e);
+      }
     }
 
     return res.json({ success: true, message: 'Password reset to default (12345678) successfully.' });
@@ -161,13 +189,15 @@ async function startServer() {
     await db.updateAdminPassword(newHash);
 
     // Update in Firebase Auth as well
-    try {
-      const auth = getAdminAuth();
-      const user = await auth.getUserByEmail('thecozycart11@thecozycart.com');
-      await auth.updateUser(user.uid, { password: newPassword });
-      console.log('Successfully updated Admin password in Firebase Authentication');
-    } catch (e) {
-      console.warn('Could not update Admin password in Firebase Authentication:', e);
+    if (isFirebaseAuthAvailable) {
+      try {
+        const auth = getAdminAuth();
+        const user = await auth.getUserByEmail('thecozycart11@thecozycart.com');
+        await auth.updateUser(user.uid, { password: newPassword });
+        console.log('Successfully updated Admin password in Firebase Authentication');
+      } catch (e) {
+        console.warn('Could not update Admin password in Firebase Authentication:', e);
+      }
     }
 
     return res.json({ success: true, message: 'Password updated successfully.' });

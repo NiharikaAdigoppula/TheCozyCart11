@@ -6,7 +6,7 @@
 import { MongoClient } from 'mongodb';
 import * as fs from 'fs';
 import * as path from 'path';
-import { initializeApp as initAdminApp, getApps as getAdminApps, applicationDefault } from 'firebase-admin/app';
+import { initializeApp as initAdminApp, getApps as getAdminApps, applicationDefault, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { Category, Product, OutfitCollection } from '../types';
 
@@ -499,8 +499,20 @@ export class MongoDatabase {
         if (config && config.projectId) {
           let adminApp;
           if (getAdminApps().length === 0) {
+            let credential;
+            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+              try {
+                credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT));
+                console.log('Firebase Admin credential initialized from FIREBASE_SERVICE_ACCOUNT env var.');
+              } catch (e) {
+                console.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT env var, falling back to applicationDefault():', e);
+                credential = applicationDefault();
+              }
+            } else {
+              credential = applicationDefault();
+            }
             adminApp = initAdminApp({
-              credential: applicationDefault(),
+              credential,
               projectId: config.projectId,
             });
           } else {
@@ -612,7 +624,23 @@ export class MongoDatabase {
   }
 
   private async connectMongo() {
-    const rawUri = process.env.MONGODB_URI || 'mongodb+srv://thecozycart11:Niha%40cozy11@cluster0.kwjwbr.mongodb.net/?appName=Cluster0';
+    const rawUri = process.env.MONGODB_URI;
+    if (!rawUri) {
+      console.warn('MONGODB_URI is not set in environment variables. Skipping MongoDB connection. Using Firestore and local file DB.');
+      this.connected = false;
+      
+      // Load from Firestore as primary fallback
+      try {
+        const firestoreData = await this.loadFromFirestore();
+        if (firestoreData) {
+          this.fallbackData = firestoreData;
+          fs.writeFileSync(DB_FILE, JSON.stringify(this.fallbackData, null, 2), 'utf-8');
+        }
+      } catch (e) {
+        console.warn('Could not load backup from Firestore:', e);
+      }
+      return;
+    }
     
     const uriStrip = cleanMongoUri(rawUri, true);
     const uriKeep = cleanMongoUri(rawUri, false);
