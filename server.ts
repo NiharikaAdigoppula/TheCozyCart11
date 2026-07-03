@@ -63,7 +63,7 @@ async function startServer() {
                 credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT));
                 console.log('Firebase Admin initialized with service account from env.');
               } catch (e) {
-                console.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT in server.ts:', e);
+                console.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT in server.ts, falling back to applicationDefault():', e);
                 credential = applicationDefault();
               }
             } else {
@@ -91,24 +91,19 @@ async function startServer() {
                 });
                 console.log(`Successfully created default Admin User in Firebase Auth: ${email}`);
               } catch (createErr: any) {
-                if (createErr.message?.includes('identitytoolkit') || createErr.code === 'auth/internal-error') {
-                  console.warn('Firebase Auth Identity Toolkit API is not fully enabled or configured. Disabling secondary Firebase Auth integration.');
-                  isFirebaseAuthAvailable = false;
-                } else {
-                  console.error('Failed to create default Admin User in Firebase Auth:', createErr);
-                }
+                console.warn('Could not create admin user in Firebase Auth. Disabling secondary Firebase Auth integration:', createErr.message || createErr);
+                isFirebaseAuthAvailable = false;
               }
-            } else if (err.message?.includes('identitytoolkit') || err.code === 'auth/internal-error') {
-              console.warn('Firebase Auth Identity Toolkit API is not fully enabled or configured. Disabling secondary Firebase Auth integration.');
-              isFirebaseAuthAvailable = false;
             } else {
-              console.error('Error checking admin user in Firebase Auth:', err);
+              console.warn('Could not retrieve admin user in Firebase Auth. Disabling secondary Firebase Auth integration:', err.message || err);
+              isFirebaseAuthAvailable = false;
             }
           }
         }
       }
-    } catch (err) {
-      console.warn('Firebase Admin setup/ensure user failed on server startup:', err);
+    } catch (err: any) {
+      console.warn('Firebase Admin setup/ensure user failed on server startup. Disabling secondary Firebase Auth integration:', err.message || err);
+      isFirebaseAuthAvailable = false;
     }
   }
 

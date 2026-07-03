@@ -553,8 +553,9 @@ export class MongoDatabase {
         adminPasswordHash: this.fallbackData.adminPasswordHash
       }, { merge: true });
       console.log('Successfully synced MongoDatabase fallbackData to Firestore!');
-    } catch (err) {
-      console.warn('Failed to sync data to Firestore:', err);
+    } catch (err: any) {
+      console.warn('Failed to sync data to Firestore. Disabling secondary Firestore integration:', err.message || err);
+      this.isFirebaseAvailable = false;
     }
   }
 
@@ -586,8 +587,9 @@ export class MongoDatabase {
           adminPasswordHash: adminPasswordHash || this.fallbackData.adminPasswordHash
         };
       }
-    } catch (err) {
-      console.warn('Failed to load database content from Firestore:', err);
+    } catch (err: any) {
+      console.warn('Failed to load database content from Firestore. Disabling secondary Firestore integration:', err.message || err);
+      this.isFirebaseAvailable = false;
     }
     return null;
   }
